@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anime Quiz Widget</title>
+<style>
+  :root {
+    --bg-color: #0f172a;
+    --card-bg: #1e293b;
+    --primary: #a855f7; /* Neon Purple */
+    --secondary: #3b82f6; /* Neon Blue */
+    --accent: #ec4899; /* Neon Pink */
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --success: #22c55e;
+    --error: #ef4444;
+    --font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  /* Scoped Styles to prevent bleeding into Blogger themes */
+  #anime-quiz-widget {
+    font-family: var(--font-family);
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    width: 100%;
+    max-width: 600px;
+    margin: 20px auto;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.1);
+    /* Animated Gradient Background */
+    background-image: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+    background-size: 200% 200%;
+    animation: gradientMove 10s ease infinite;
+  }
+
+  @keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* --- Header & Hooks --- */
+  .aq-header {
+    text-align: center;
+    padding: 20px;
+    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .aq-main-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin: 0 0 10px 0;
+    text-shadow: 0 0 10px var(--primary);
+    color: #fff;
+    line-height: 1.3;
+  }
+
+  .aq-subtitle {
+    font-size: 0.95rem;
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+
+  /* --- Screens --- */
+  .aq-screen {
+    padding: 20px;
+    display: none; /* Hidden by default */
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  .aq-screen.active {
+    display: block;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* --- Start Screen --- */
+  .aq-start-btn {
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    border: none;
+    padding: 15px 40px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: white;
+    border-radius: 50px;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-transform: uppercase;
+    box-shadow: 0 0 15px rgba(168, 85, 247, 0.5);
+  }
+
+  .aq-start-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 25px rgba(168, 85, 247, 0.8);
+  }
+
+  /* --- Quiz Screen --- */
+  .aq-stats-bar {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: var(--text-muted);
+  }
+
+  .aq-stat-value {
+    color: var(--secondary);
+  }
+
+  .aq-timer-container {
+    width: 100%;
+    height: 6px;
+    background: #334155;
+    border-radius: 3px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+
+  .aq-timer-bar {
+    height: 100%;
+    width: 100%;
+    background: var(--accent);
+    transition: width 0.1s linear, background 0.3s;
+  }
+
+  .aq-question-text {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  .aq-options-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .aq-option-btn {
+    background: var(--card-bg);
+    border: 2px solid #334155;
+    color: var(--text-main);
+    padding: 15px;
+    border-radius: 10px;
+    text-align: left;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .aq-option-btn:hover:not(:disabled) {
+    border-color: var(--secondary);
+    background: #283648;
+    transform: translateX(5px);
+  }
+
+  .aq-option-btn:disabled {
+    cursor: default;
+    opacity: 0.8;
+  }
+
+  /* Feedback States */
+  .aq-option-btn.correct {
+    border-color: var(--success);
+    background: rgba(34, 197, 94, 0.2);
+    box-shadow: 0 0 15px var(--success);
+    color: #fff;
+  }
+
+  .aq-option-btn.wrong {
+    border-color: var(--error);
+    background: rgba(239, 68, 68, 0.2);
+    box-shadow: 0 0 15px var(--error);
+  }
+
+  .aq-feedback-msg {
+    text-align: center;
+    margin-top: 15px;
+    font-weight: bold;
+    height: 24px;
+  }
+
+  /* Next Button (appears after answer) */
+  .aq-next-btn {
+    display: none; /* Hidden initially */
+    width: 100%;
+    margin-top: 15px;
+    background: var(--text-main);
+    color: var(--bg-color);
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  
+  .aq-next-btn:hover {
+    background: #e2e8f0;
+  }
+
+  /* --- Result Screen --- */
+  .aq-result-content {
+    text-align: center;
+  }
+
+  .aq-final-score {
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--primary);
+    text-shadow: 0 0 20px rgba(168, 85, 247, 0.6);
+    margin: 10px 0;
+  }
+
+  .aq-rank-title {
+    font-size: 1.5rem;
+    color: var(--accent);
+    margin-bottom: 20px;
+    font-weight: bold;
+  }
+
+  .aq-msg-box {
+    background: rgba(255,255,255,0.05);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+
+  /* Mobile Optimization */
+  @media (max-width: 480px) {
+    .aq-main-title { font-size: 1.2rem; }
+    .aq-question-text { font-size: 1.1rem; }
+    .aq-header { padding: 15px; }
+    #anime-quiz-widget { border-radius: 0; margin: 0; border: none; }
+  }
+
+</style>
+</head>
+<body>
+
+<div id="anime-quiz-widget">
+  
+  <!-- Header -->
+  <div class="aq-header">
+    <div class="aq-main-title">🔥 Only True Otaku Can Score 80+ – Prove Yourself!</div>
+    <div class="aq-subtitle">⏱ You have limited time per question. Think fast!</div>
+  </div>
+
+  <!-- Start Screen -->
+  <div id="start-screen" class="aq-screen active" style="text-align: center;">
+    <div style="font-size: 4rem; margin: 20px 0;">📺</div>
+    <p>Ready to test your Anime knowledge? We have 50+ questions from Naruto to One Piece!</p>
+    <p>Rules: 10 Questions, 10 Seconds each.</p>
+    <button class="aq-start-btn" onclick="initGame()">Start Quiz</button>
+  </div>
+
+  <!-- Quiz Screen -->
+  <div id="quiz-screen" class="aq-screen">
+    <div class="aq-stats-bar">
+      <span>Question: <span id="q-current" class="aq-stat-value">1</span>/<span id="q-total">10</span></span>
+      <span>Score: <span id="score-display" class="aq-stat-value">0</span></span>
+    </div>
+
+    <!-- Timer Bar -->
+    <div class="aq-timer-container">
+      <div id="timer-bar" class="aq-timer-bar"></div>
+    </div>
+
+    <!-- Question -->
+    <div id="question-text" class="aq-question-text">Loading Question...</div>
+
+    <!-- Options -->
+    <div id="options-container" class="aq-options-grid">
+      <!-- Buttons injected via JS -->
+    </div>
+
+    <div id="feedback-msg" class="aq-feedback-msg"></div>
+    <button id="next-btn" class="aq-next-btn" onclick="nextQuestion()">Next Question ➜</button>
+  </div>
+
+  <!-- Result Screen -->
+  <div id="result-screen" class="aq-screen">
+    <div class="aq-result-content">
+      <h2>Quiz Completed!</h2>
+      <div class="aq-final-score"><span id="final-score-val">0</span>/10</div>
+      <div id="rank-title" class="aq-rank-title">Casual Watcher 😴</div>
+      
+      <div class="aq-msg-box">
+        <p id="result-msg">Better luck next time!</p>
+      </div>
+
+      <button class="aq-start-btn" onclick="initGame()">Restart Quiz </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // --- Data Set ---
+  // Based on user provided list. 
+  const questionBank = [
+    { q: "Naruto ka main character ka naam kya hai?", opts: ["Sasuke", "Naruto", "Kakashi", "Itachi"], ans: 1 },
+    { q: "Luffy kis anime se hai?", opts: ["Naruto", "Bleach", "One Piece", "Fairy Tail"], ans: 2 },
+    { q: "Goku kis race ka hai?", opts: ["Human", "Saiyan", "Alien", "God"], ans: 1 },
+    { q: "Light Yagami ko Death Note kaise mila?", opts: ["Shop se", "Ryuk ne drop kiya", "Friend ne diya", "Chura liya"], ans: 1 },
+    { q: "Titan ka concept kis anime mein hai?", opts: ["Tokyo Ghoul", "Attack on Titan", "Death Note", "Jujutsu Kaisen"], ans: 1 },
+    { q: "Ichigo ka power kya hai?", opts: ["Ninja", "Soul Reaper", "Wizard", "Pirate"], ans: 1 },
+    { q: "Saitama ka nickname kya hai?", opts: ["Hero King", "One Punch Man", "Bald Hero", "Strongest Man"], ans: 1 },
+    { q: "Deku ka real naam?", opts: ["Bakugo", "Midoriya", "Todoroki", "Kirishima"], ans: 1 },
+    { q: "Nezuko kis anime se hai?", opts: ["Naruto", "Demon Slayer", "Bleach", "One Piece"], ans: 1 },
+    { q: "Gojo Satoru kis anime ka character hai?", opts: ["Naruto", "JJK", "AOT", "Bleach"], ans: 1 },
+    { q: "Sharingan kis clan ka hai?", opts: ["Senju", "Uchiha", "Hyuga", "Uzumaki"], ans: 1 },
+    { q: "Levi kis squad ka leader hai?", opts: ["Survey Corps", "Police", "Army", "Special Squad"], ans: 0 },
+    { q: "Tanjiro ka goal kya hai?", opts: ["King banna", "Demon Slayer banna", "Sister ko human banana", "Revenge"], ans: 2 },
+    { q: "One Piece ka ultimate treasure kya hai?", opts: ["Gold", "Weapon", "Unknown", "Devil Fruit"], ans: 2 },
+    { q: "Ryuk kya hai?", opts: ["Human", "Shinigami", "Demon", "Spirit"], ans: 1 },
+    { q: "Kakashi ka famous move?", opts: ["Rasengan", "Chidori", "Amaterasu", "Susanoo"], ans: 1 },
+    { q: "Eren ka final goal?", opts: ["Peace", "Revenge", "Freedom", "Power"], ans: 2 },
+    { q: "Todoroki ka quirk kya hai?", opts: ["Fire", "Ice", "Half fire half ice", "Water"], ans: 2 },
+    { q: "Sukuna ka title kya hai?", opts: ["Demon King", "Curse King", "King of Curses", "Evil Spirit"], ans: 2 },
+    { q: "Zoro kitni swords use karta hai?", opts: ["1", "2", "3", "4"], ans: 2 },
+    { q: "Naruto ka father kaun hai?", opts: ["Jiraiya", "Minato", "Hiruzen", "Kakashi"], ans: 1 },
+    { q: "Sasuke ka brother kaun hai?", opts: ["Madara", "Obito", "Itachi", "Shisui"], ans: 2 },
+    { q: "Tokyo Ghoul ka MC?", opts: ["Kaneki", "Touka", "Amon", "Hide"], ans: 0 },
+    { q: "L ka real naam?", opts: ["Unknown", "Lawliet", "Light", "Ryuk"], ans: 1 },
+    { q: "Dragon Ball ka strongest form?", opts: ["SSJ", "SSJ Blue", "Ultra Instinct", "SSJ4"], ans: 2 },
+    { q: "Fairy Tail ka guild master?", opts: ["Natsu", "Gray", "Makarov", "Erza"], ans: 2 },
+    { q: "Hunter x Hunter ka MC?", opts: ["Killua", "Gon", "Hisoka", "Kurapika"], ans: 1 },
+    { q: "Killua kis family se hai?", opts: ["Ninja", "Assassin", "Royal", "Mage"], ans: 1 },
+    { q: "Jujutsu Kaisen ka MC?", opts: ["Gojo", "Yuji", "Megumi", "Sukuna"], ans: 1 },
+    { q: "One Punch Man villain?", opts: ["Boros", "Garou", "Both", "None"], ans: 2 },
+    { q: "Madara ka goal kya tha?", opts: ["Peace", "Infinite Tsukuyomi", "War", "Power"], ans: 1 },
+    { q: "Aizen kis anime se hai?", opts: ["Naruto", "Bleach", "OP", "JJK"], ans: 1 },
+    { q: "Fullmetal Alchemist mein taboo kya hai?", opts: ["Magic", "Human Transmutation", "Fighting", "Alchemy"], ans: 1 },
+    { q: "Edward ka brother?", opts: ["Alphonse", "Roy", "Scar", "Ling"], ans: 0 },
+    { q: "Code Geass ka MC?", opts: ["Lelouch", "Suzaku", "C.C.", "Kallen"], ans: 0 },
+    { q: "Lelouch ka power?", opts: ["Sharingan", "Geass", "Magic", "Curse"], ans: 1 },
+    { q: "Erwin Smith ka role?", opts: ["Captain", "Commander", "Soldier", "King"], ans: 1 },
+    { q: "Mikasa ka relation Eren se?", opts: ["Sister", "Friend", "Adopted family", "Lover"], ans: 2 },
+    { q: "Doflamingo ka fruit?", opts: ["Fire", "String", "Ice", "Shadow"], ans: 1 },
+    { q: "Black Clover MC?", opts: ["Yuno", "Asta", "Noelle", "Yami"], ans: 1 },
+    { q: "Asta ke paas kya nahi hai?", opts: ["Magic", "Strength", "Power", "Skill"], ans: 0 },
+    { q: "Yuno ka spirit?", opts: ["Fire", "Wind", "Water", "Earth"], ans: 1 },
+    { q: "Hisoka ka ability?", opts: ["Fire", "Bungee Gum", "Ice", "Shadow"], ans: 1 },
+    { q: "Meruem kis arc se hai?", opts: ["Chimera Ant", "Yorknew", "Greed Island", "Hunter Exam"], ans: 0 },
+    { q: "Jiren kis universe se hai?", opts: ["6", "7", "11", "10"], ans: 2 },
+    { q: "Vegeta ka rival?", opts: ["Goku", "Gohan", "Broly", "Beerus"], ans: 0 },
+    { q: "Kagome kis anime se hai?", opts: ["Inuyasha", "Naruto", "Bleach", "OP"], ans: 0 },
+    { q: "Inuyasha kya hai?", opts: ["Demon", "Half demon", "Human", "God"], ans: 1 },
+    { q: "Akatsuki ka leader?", opts: ["Pain", "Obito", "Itachi", "Madara"], ans: 0 },
+    { q: "Pain ka real naam?", opts: ["Nagato", "Yahiko", "Konan", "Obito"], ans: 0 },
+    { q: "Chainsaw Man MC?", opts: ["Denji", "Aki", "Power", "Makima"], ans: 0 },
+    { q: "Denji ka contract kis se hai?", opts: ["Devil", "Pochita", "Human", "Angel"], ans: 1 },
+    { q: "Makima ka role?", opts: ["Hero", "Villain", "Both", "Neutral"], ans: 2 },
+    { q: "Bleach main villain?", opts: ["Aizen", "Ichigo", "Rukia", "Renji"], ans: 0 },
+    { q: "Tokyo Revengers MC?", opts: ["Mikey", "Takemichi", "Draken", "Kisaki"], ans: 1 },
+    { q: "Mikey ka real naam?", opts: ["Manjiro", "Ken", "Takashi", "Ryu"], ans: 0 },
+    { q: "Draken ka real naam?", opts: ["Ken Ryuguji", "Takemichi", "Kazutora", "Mitsuya"], ans: 0 },
+    { q: "Haikyuu MC?", opts: ["Hinata", "Kageyama", "Nishinoya", "Tsukishima"], ans: 0 },
+    { q: "Hinata ka role?", opts: ["Setter", "Spiker", "Libero", "Blocker"], ans: 1 },
+    { q: "Kageyama ka role?", opts: ["Spiker", "Libero", "Setter", "Captain"], ans: 2 }
+  ];
+
+  // --- Game State Variables ---
+  let currentQuestions = [];
+  let currentQIndex = 0;
+  let score = 0;
+  let timerInterval;
+  let timeLeft;
+  const TIME_LIMIT = 10; // seconds
+  const QUESTIONS_PER_GAME = 10;
+
+  // --- Audio Context (Lazy load) ---
+  let audioCtx;
+  function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+
+  function playSound(type) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    if (type === 'correct') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(500, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1000, audioCtx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.5);
+    } else if (type === 'wrong') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+      osc.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.3);
+    }
+  }
+
+  // --- DOM Elements ---
+  const screens = {
+    start: document.getElementById('start-screen'),
+    quiz: document.getElementById('quiz-screen'),
+    result: document.getElementById('result-screen')
+  };
+  const ui = {
+    qCurrent: document.getElementById('q-current'),
+    qTotal: document.getElementById('q-total'),
+    score: document.getElementById('score-display'),
+    timerBar: document.getElementById('timer-bar'),
+    questionText: document.getElementById('question-text'),
+    optionsContainer: document.getElementById('options-container'),
+    feedback: document.getElementById('feedback-msg'),
+    nextBtn: document.getElementById('next-btn'),
+    finalScore: document.getElementById('final-score-val'),
+    rankTitle: document.getElementById('rank-title'),
+    resultMsg: document.getElementById('result-msg')
+  };
+
+  // --- Core Functions ---
+
+  function switchScreen(screenName) {
+    Object.values(screens).forEach(s => s.classList.remove('active'));
+    screens[screenName].classList.add('active');
+  }
+
+  function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
+  function initGame() {
+    initAudio(); // Initialize audio context on user interaction
+    score = 0;
+    currentQIndex = 0;
+    ui.score.textContent = score;
+    
+    // Prepare questions: Clone bank, shuffle, slice top 10
+    // We use a deep copy/spread to not mutate original order permanently if we wanted
+    let shuffled = shuffleArray([...questionBank]);
+    currentQuestions = shuffled.slice(0, QUESTIONS_PER_GAME);
+    
+    ui.qTotal.textContent = QUESTIONS_PER_GAME;
+    
+    switchScreen('quiz');
+    loadQuestion();
+  }
+
+  function loadQuestion() {
+    // Reset UI
+    ui.nextBtn.style.display = 'none';
+    ui.feedback.textContent = '';
+    ui.feedback.style.color = 'inherit';
+    ui.timerBar.style.width = '100%';
+    ui.timerBar.style.backgroundColor = 'var(--accent)';
+    
+    const qData = currentQuestions[currentQIndex];
+    ui.qCurrent.textContent = currentQIndex + 1;
+    ui.questionText.textContent = qData.q;
+
+    // Render Options
+    ui.optionsContainer.innerHTML = '';
+    qData.opts.forEach((opt, index) => {
+      const btn = document.createElement('button');
+      btn.className = 'aq-option-btn';
+      // Add A, B, C, D labels
+      const labels = ['A', 'B', 'C', 'D'];
+      btn.innerHTML = `<span style="color:var(--accent); font-weight:bold; margin-right:10px;">${labels[index]}.</span> ${opt}`;
+      btn.onclick = () => checkAnswer(index, btn);
+      ui.optionsContainer.appendChild(btn);
+    });
+
+    // Start Timer
+    startTimer();
+  }
+
+  function startTimer() {
+    clearInterval(timerInterval);
+    timeLeft = TIME_LIMIT;
+    
+    timerInterval = setInterval(() => {
+      timeLeft -= 0.1; // Update every 100ms
+      const percentage = (timeLeft / TIME_LIMIT) * 100;
+      ui.timerBar.style.width = `${percentage}%`;
+
+      // Color shift logic
+      if (percentage < 30) ui.timerBar.style.backgroundColor = 'var(--error)';
+      else if (percentage < 60) ui.timerBar.style.backgroundColor = '#f59e0b'; // Orange
+
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        handleTimeOut();
+      }
+    }, 100);
+  }
+
+  function checkAnswer(selectedIndex, btnElement) {
+    clearInterval(timerInterval); // Stop timer
+    disableButtons();
+
+    const qData = currentQuestions[currentQIndex];
+    const isCorrect = selectedIndex === qData.ans;
+    const allBtns = ui.optionsContainer.querySelectorAll('.aq-option-btn');
+
+    if (isCorrect) {
+      score++;
+      ui.score.textContent = score;
+      btnElement.classList.add('correct');
+      ui.feedback.textContent = "Correct! 🎉";
+      ui.feedback.style.color = "var(--success)";
+      playSound('correct');
+    } else {
+      btnElement.classList.add('wrong');
+      // Highlight correct answer
+      allBtns[qData.ans].classList.add('correct');
+      ui.feedback.textContent = "Wrong! 💀";
+      ui.feedback.style.color = "var(--error)";
+      playSound('wrong');
+    }
+
+    ui.nextBtn.style.display = 'block';
+  }
+
+  function handleTimeOut() {
+    disableButtons();
+    ui.feedback.textContent = "Time's Up! ⏰";
+    ui.feedback.style.color = "var(--text-muted)";
+    ui.timerBar.style.width = '0%';
+
+    // Reveal correct answer
+    const qData = currentQuestions[currentQIndex];
+    const allBtns = ui.optionsContainer.querySelectorAll('.aq-option-btn');
+    allBtns[qData.ans].classList.add('correct');
+    
+    ui.nextBtn.style.display = 'block';
+  }
+
+  function disableButtons() {
+    const btns = ui.optionsContainer.querySelectorAll('.aq-option-btn');
+    btns.forEach(btn => btn.disabled = true);
+  }
+
+  function nextQuestion() {
+    currentQIndex++;
+    if (currentQIndex < QUESTIONS_PER_GAME) {
+      loadQuestion();
+    } else {
+      showResults();
+    }
+  }
+
+  function showResults() {
+    switchScreen('result');
+    ui.finalScore.textContent = score;
+    
+    let title = "";
+    let msg = "";
+
+    if (score <= 4) {
+      title = "Casual Watcher 😴";
+      msg = "You have a long way to go to become a master. Keep watching!";
+    } else if (score <= 7) {
+      title = "Anime Fan 😎";
+      msg = "Not bad! You know your stuff, but there's room for improvement.";
+    } else {
+      title = "TRUE OTAKU 🔥";
+      msg = "Incredible! Your knowledge is top-tier. You are truly legendary!";
+    }
+
+    ui.rankTitle.textContent = title;
+    ui.resultMsg.textContent = msg;
+  }
+
+</script>
+
+</body>
+  </html>
